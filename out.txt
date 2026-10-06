@@ -1,0 +1,344 @@
+#include "Global.hpp"
+#include "AudioEngine.hpp"
+
+AudioEngine::AudioEngine(Synth &synth)
+	: _synth(synth)
+{
+ _initialized = false;
+}
+
+AudioEngine::~AudioEngine(void)
+{
+	stop();
+}
+
+void	AudioEngine::callback(ma_device *dev, void *out, const void *, ma_uint32 frames)
+{
+	Synth *synth = static_cast<Synth *>(dev->pUserData);
+	synth->render(static_cast<float *>(out), static_cast<int>(frames));
+}
+
+bool	AudioEngine::start(void)
+{
+	ma_device_config	cfg = ma_device_config_init(ma_device_type_playback);
+	cfg.playback.format	= ma_format_f32;
+	cfg.playback.channels = 1;
+	cfg.sampleRate = 0;
+	cfg.dataCallback = callback;
+	cfg.pUserData = &_synth;
+
+	if (ma_device_init(NULL, &cfg, &_dev) != MA_SUCCESS)
+		return (false);
+	_initialized = true;
+	_synth.setSampleRate(_dev.sampleRate);
+	return (ma_device_start(&_dev) == MA_SUCCESS);
+}
+
+void	AudioEngine::stop(void)
+{
+	if (_initialized)
+	{
+		ma_device_uninit(&_dev);
+		_initialized = false;
+	}
+}
+#include "Envelope.hpp"
+#include <algorithm>
+
+static const float MIN_TIME = 0.001f;
+
+Envelope::Envelope(void)
+{
+	_stage = Idle;
+	_level = 0.0f;
+	_sampleRate = 480000.0;
+	_attack = 0.01f;
+	_decay = 0.07f;
+	_sustain = 0.7f;
+	_release = 0.03f;
+	_releaseStep = 0.0f;
+}
+
+void	Envelope::setSampleRate(double sr)
+{
+	_sampleRate = sr;
+}
+
+void	Envelope::setParams(float a, float d, float s, float r)
+{
+	_attack = std::max(a, MIN_TIME);
+	_decay = std::max(d, MIN_TIME);
+	_sustain = std::min(std::max(s, 0.0f), 1.0f);
+	_release = std::max(r, MIN_TIME);
+}
+
+void	Envelope::noteOn(void)
+{
+	_stage = Attack;
+}
+
+void	Envelope::noteOff(void)
+{
+	if (_stage == Idle || _stage == Release)
+		return ;
+	if (_level <= 0.0001f)
+	{
+		_level = 0.0f;
+		_stage = Idle;
+		return ;
+	}
+	_stage = Release;
+}
+
+float	Envelope::next(void)
+{
+	switch (_stage)
+	{
+		case	Attack:
+			_level += 1.0f / static_cast<float>(_attack * _sampleRate);
+			if (_level >= 1.0f)
+			{
+				_level = 1.0f;
+				_stage = Decay;
+			}
+			break ;
+		case	Decay:
+			_level -= (1.0f - _sustain) / static_cast<float>(_decay * _sampleRate);
+			if (_level <= _sustain)
+			{
+				_level = _sustain;
+				_stage = Sustain;
+			}
+			break ;
+		case	Sustain:
+			_level = _sustain;
+			break ;
+		case	Release:
+			_level -= _releaseStep;
+			if (_level <= 0.0f)
+			{
+				_level = 0.0f;
+				_stage = Idle;
+			}
+			break ;
+		case	Idle:
+			break ;
+	}
+	return (_level);
+
+}
+#include "Global.hpp"
+#include "EventQueue.hpp"
+
+bool	EventQueue::push(const Event &e)
+{
+	size_t	h = _head.load(std::memory_order_relaxed);
+	size_t	next = (h + 1) % N;
+	if (next == _tail.load(std::memory_order_acquire))
+		return (false);
+	_buf[h] = e;
+	_head.store(next, std::memory_order_release);
+	return (true);
+}
+
+bool	EventQueue::pop(Event &e)
+{
+	size_t t = _tail.load(std::memory_order_relaxed);
+	if (t == _head.load(std::memory_order_acquire))
+		return (false);
+	e = _buf[t];
+	_tail.store((t + 1) % N, std::memory_order_release);
+	return (true);
+}
+#include "Global.hpp"
+#include "Global.hpp"
+
+#include <iostream>
+#include "AudioEngine.hpp"
+#include "Synth.hpp"
+#include "Terminal.hpp"
+#include <cstring>
+
+static int	keyToNote(int c)
+{
+	static const char	*keys = "awsedftgyhujk";
+	const char			*p = std::strchr(keys, c);
+	return ((p && c) ? 60 + static_cast<int>(p - keys) : -1);
+}
+
+int	main(void)
+{
+	Synth		synth;
+	AudioEngine	engine(synth);
+
+	if (!engine.start())
+	{
+		std::cerr << "Could not start audio device\n";
+		return (1);
+	}
+	std::cout << "Play with a w s e d f t g y h u j k. Space = release, q = quit.\n";
+	RawTerminal	raw;
+	int c;
+	int note = 'c';
+	while ((c = getchar()) != EOF && c != 'q')
+	{
+	    if (c != ' ' && c != 'q') note = keyToNote(c);
+	    if (c == ' ')
+	        synth.postNoteOff(-1);
+	    else
+	    {
+	        if (note >= 0)
+	            synth.postNoteOn(note);
+	    }
+	}
+}
+#include "Oscillator.hpp"
+#include <cmath>
+
+Oscillator::Oscillator(void)
+{
+	_phase = 0;
+	_freq = 440.0;
+	_sampleRate = 48000.0;
+}
+
+float	Oscillator::next(void)
+{
+	float	out = static_cast<float>(std::sin(2.0 * M_PI * _phase));
+	_phase += _freq/ _sampleRate;
+	if (_phase >= 1)
+		_phase -= 1;
+	return (out);
+}
+
+void	Oscillator::setSampleRate(double sr)
+{
+	_sampleRate = sr;
+}
+
+void	Oscillator::setFrequency(double f)
+{
+	_freq = f;
+}
+#include "Synth.hpp"
+#include <cmath>
+
+static float	noteToFreq(int note)
+{
+	return (440.0f * std::pow(2.0f, (note - 69) / 12.0f));
+}
+
+void	Synth::setSampleRate(double sr)
+{
+	for (auto &v : _voices)
+		v.setSampleRate(sr);
+}
+
+Voice	*Synth::allocateVoice(int note)
+{
+	for (auto &v : _voices)
+		if (v.isHeld() && v.note() == note)
+			return (&v);
+	for (auto &v : _voices)
+		if (!v.isActive())
+			return (&v);
+	Voice	*victim = nullptr;
+	for (auto &v : _voices)
+		if (!v.isReleasing() && (!victim || v.age() < victim->age()))
+			victim = &v;
+	if (victim)
+		return (victim);
+	victim = &_voices[0];
+	for (auto &v : _voices)
+		if (v.age() < victim->age())
+			victim = &v;
+	return (victim);
+}
+
+void	Synth::noteOn(int note)
+{
+	Voice	*v = allocateVoice(note);
+	v->noteOn(note, noteToFreq(note), ++_noteCounter);
+}
+
+void	Synth::noteOff(int note)
+{
+	for (auto &v : _voices)
+		if (v.isHeld() && (note < 0 || v.note() == note))
+			v.noteOff();
+}
+
+void	Synth::postNoteOn(int note)
+{
+	Event	e;
+	e.type = Event::NoteOn;
+	e.note = note;
+	_events.push(e);
+}
+
+void	Synth::postNoteOff(int note)
+{
+	Event e;
+	e.type = Event::NoteOff;
+	e.note = 0;
+	_events.push(e);
+}
+
+
+void Synth::render(float *out, int frames)
+{
+	Event e;
+	while (_events.pop(e))
+	{
+		if (e.type == Event::NoteOn)
+			noteOn(e.note);
+		else
+			noteOff(e.note);
+	}
+	for (int i = 0; i < frames; ++i)
+	{
+		float mix = 0.0f;
+		for (auto &v : _voices)
+			mix += v.render(_patch);
+		out[i] = mix * 0.2f;
+	}
+}
+#include "Voice.hpp"
+#include "Patch.hpp"
+
+Voice::Voice(void)
+{
+	_note = -1;
+	_held = false;
+	_age = 0;
+
+}
+
+void	Voice::setSampleRate(double sr)
+{
+	_osc.setSampleRate(sr);
+	_env.setSampleRate(sr);
+}
+
+void	Voice::noteOn(int note, float freq, uint64_t age)
+{
+	_note = note;
+	_held = true;
+	_age = age;
+	_osc.setFrequency(freq);
+	_env.noteOn();
+}
+
+void	Voice::noteOff(void)
+{
+	_held = false;
+	_env.noteOff();
+}
+
+float	Voice::render(const Patch &p)
+{
+	if (!_env.isActive())
+		return (0.0f);
+	_env.setParams(p.attack, p.decay, p.sustain, p.release);
+	return (_osc.next() * _env.next());
+}
