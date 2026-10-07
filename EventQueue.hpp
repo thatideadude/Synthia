@@ -8,9 +8,12 @@ struct Event
 	enum	Type
 	{
 		NoteOn,
-		NoteOff
+		NoteOff,
+		SetParam
 	} type;
 	int		note;
+	int		param;
+	int		value;
 };
 
 class	EventQueue

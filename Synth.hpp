@@ -12,6 +12,8 @@ class	Synth
 		void	postNoteOn(int note);
 		void	postNoteOff(int note);
 		void	render(float *out, int frames);
+		void	postParam(int id, float value);
+		void	applyParam(int id, float value);
 	private:
 		void					noteOn(int midiNote);
 		void					noteOff(int note);

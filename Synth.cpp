@@ -70,8 +70,10 @@ void Synth::render(float *out, int frames)
 	{
 		if (e.type == Event::NoteOn)
 			noteOn(e.note);
-		else
+		else if (e.type == Event::NoteOff)
 			noteOff(e.note);
+		else
+			applyParam(e.param, e.value);
 	}
 	for (int i = 0; i < frames; ++i)
 	{
@@ -79,5 +81,27 @@ void Synth::render(float *out, int frames)
 		for (auto &v : _voices)
 			mix += v.render(_patch);
 		out[i] = mix * 0.2f;
+	}
+}
+
+void	Synth::postParam(int id, float value)
+{
+	Event 	e;
+	e.type = Event::SetParam;
+	e.note = 0;
+	e.param = id;
+	e.value = value;
+	_events.push(e);
+}
+
+void	Synth::applyParam(int id, float v)
+{
+	switch (id)
+	{
+		case P_Waveform		: _patch.waveform = static_cast<Waveform>(static_cast<int>(v)); break ;
+		case P_Cutoff		: _patch.cutoff = v; break;
+		case P_Resonance	: _patch.resonance = v; break ;
+		case P_EnvAmount	: _patch.envAmount = v; break ;
+		case P_FilterMode	: _patch.filterMode = static_cast<FilterMode>(static_cast<int>(v)); break ;
 	}
 }

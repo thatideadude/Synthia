@@ -25,6 +25,7 @@ class	Voice
 		Oscillator	_osc;
 		Envelope	_env;
 		Filter		_filter;
+		Envelope	_fEnv;
 		int			_note;
 		bool		_held;
 		uint64_t	_age;
