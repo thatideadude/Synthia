@@ -5,7 +5,7 @@ enum	LfoShape
 	LfoSine,
 	LfoTriangle,
 	LfoSquare,
-	LfoSaw,
+	LfoSawm
 	LfoSampleHold
 };
 
@@ -30,13 +30,7 @@ enum	Param
 	P_Cutoff,
 	P_Resonance,
 	P_EnvAmount,
-	P_FilterMode,
-	P_LfoShape,
-	P_LfoRate,
-	P_LfoPitch,
-	P_LfoCutoff,
-	P_Glide,
-	P_Mono
+	P_FilterMode
 };
 
 struct	Patch
@@ -54,9 +48,4 @@ struct	Patch
 	float		fRelease = 0.1f;
 	Waveform	waveform;
 	FilterMode	filterMode;
-	LfoShape	lfoShape = LfoSine;
-	float		lfoRate = 5.0f;
-	float		lfoPitch = 0.0f;
-	float		lfoCutoff = 0.0f;
-	float		glide = 0.0f;
 };

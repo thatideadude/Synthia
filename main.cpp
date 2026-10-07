@@ -11,6 +11,11 @@ static int	keyToNote(int c)
 	return ((p && c) ? 60 + static_cast<int>(p - keys) : -1);
 }
 
+static float	clampf(float v, float lo, float hi)
+{
+	return (std::min(std::max(v, lo), hi));
+}
+
 int	main(void)
 {
 	Synth		synth;
@@ -22,46 +27,72 @@ int	main(void)
 		return (1);
 	}
 std::cout << "Play with a w s e d f t g y h u j k. Space = release, q = quit.\r\n"
-		  << "1-4 wave | [ ] cutoff | - = resonance | , . env amount | m filter mode\r\n";
-RawTerminal	raw;
-int		c;
-int		wave = Saw, mode = LowPass;
-float	cutoff = 800.0f, res = 0.3f, amt = 3.0f;
+			  << "1-4 wave | [ ] cutoff | - = res | , . env amt | m filter mode\r\n"
+			  << "l lfo shape | 7 8 lfo rate | i o lfo>pitch | z x lfo>cutoff\r\n"
+			  << "p mono on/off | 5 6 glide\r\n";
+	RawTerminal	raw;
+	int		c;
+	int		wave = Saw, mode = LowPass, lfoShape = LfoSine;
+	bool	mono = false;
+	float	cutoff = 800.0f, res = 0.3f, amt = 3.0f;
+	float	rate = 5.0f, vib = 0.0f, wob = 0.0f, glide = 0.0f;
 
-while ((c = getchar()) != EOF && c != 'q')
-{
-	switch (c)
+	while ((c = getchar()) != EOF && c != 'q')
 	{
-		case '1': case '2': case '3': case '4':
-			wave = c - '1';
-			synth.postParam(P_Waveform, static_cast<float>(wave));
-			continue ;
-		case '[': cutoff = std::max(cutoff / 1.15f, 40.0f);
-			synth.postParam(P_Cutoff, cutoff); break ;
-		case ']': cutoff = std::min(cutoff * 1.15f, 18000.0f);
-			synth.postParam(P_Cutoff, cutoff); break ;
-		case '-': res = std::max(res - 0.05f, 0.0f);
-			synth.postParam(P_Resonance, res); break ;
-		case '=': res = std::min(res + 0.05f, 0.95f);
-			synth.postParam(P_Resonance, res); break ;
-		case ',': amt = std::max(amt - 0.5f, 0.0f);
-			synth.postParam(P_EnvAmount, amt); break ;
-		case '.': amt = std::min(amt + 0.5f, 6.0f);
-			synth.postParam(P_EnvAmount, amt); break ;
-		case 'm': mode = (mode + 1) % 3;
-			synth.postParam(P_FilterMode, static_cast<float>(mode)); break ;
-		case ' ':
-			synth.postNoteOff(-1);
-			continue ;
-		default:
+		switch (c)
 		{
-			int	note = keyToNote(c);
-			if (note >= 0)
-				synth.postNoteOn(note);
-			continue ;
+			case '1': case '2': case '3': case '4':
+				wave = c - '1';
+				synth.postParam(P_Waveform, static_cast<float>(wave)); break ;
+			case '[': cutoff = clampf(cutoff / 1.15f, 40.0f, 18000.0f);
+				synth.postParam(P_Cutoff, cutoff); break ;
+			case ']': cutoff = clampf(cutoff * 1.15f, 40.0f, 18000.0f);
+				synth.postParam(P_Cutoff, cutoff); break ;
+			case '-': res = clampf(res - 0.05f, 0.0f, 0.95f);
+				synth.postParam(P_Resonance, res); break ;
+			case '=': res = clampf(res + 0.05f, 0.0f, 0.95f);
+				synth.postParam(P_Resonance, res); break ;
+			case ',': amt = clampf(amt - 0.5f, 0.0f, 6.0f);
+				synth.postParam(P_EnvAmount, amt); break ;
+			case '.': amt = clampf(amt + 0.5f, 0.0f, 6.0f);
+				synth.postParam(P_EnvAmount, amt); break ;
+			case 'm': mode = (mode + 1) % 3;
+				synth.postParam(P_FilterMode, static_cast<float>(mode)); break ;
+			case 'l': lfoShape = (lfoShape + 1) % 5;
+				synth.postParam(P_LfoShape, static_cast<float>(lfoShape)); break ;
+			case '7': rate = clampf(rate / 1.25f, 0.1f, 30.0f);
+				synth.postParam(P_LfoRate, rate); break ;
+			case '8': rate = clampf(rate * 1.25f, 0.1f, 30.0f);
+				synth.postParam(P_LfoRate, rate); break ;
+			case 'i': vib = clampf(vib - 0.25f, 0.0f, 7.0f);
+				synth.postParam(P_LfoPitch, vib); break ;
+			case 'o': vib = clampf(vib + 0.25f, 0.0f, 7.0f);
+				synth.postParam(P_LfoPitch, vib); break ;
+			case 'z': wob = clampf(wob - 0.25f, 0.0f, 4.0f);
+				synth.postParam(P_LfoCutoff, wob); break ;
+			case 'x': wob = clampf(wob + 0.25f, 0.0f, 4.0f);
+				synth.postParam(P_LfoCutoff, wob); break ;
+			case '5': glide = clampf(glide - 0.02f, 0.0f, 1.0f);
+				synth.postParam(P_Glide, glide); break ;
+			case '6': glide = clampf(glide + 0.02f, 0.0f, 1.0f);
+				synth.postParam(P_Glide, glide); break ;
+			case 'p': mono = !mono;
+				synth.postParam(P_Mono, mono ? 1.0f : 0.0f); break ;
+			case ' ':
+				synth.postNoteOff(-1);
+				continue ;
+			default:
+			{
+				int	note = keyToNote(c);
+				if (note >= 0)
+					synth.postNoteOn(note);
+				continue ;
+			}
 		}
-	}
-	std::cout << "wave " << wave << "  mode " << mode << "  cutoff " << static_cast<int>(cutoff)
-			  << "  res " << res << "  env " << amt << "\r\n" << std::flush;
+		std::cout << (mono ? "MONO" : "POLY") << " glide " << glide
+				  << " | wave " << wave << " mode " << mode << " cut " << static_cast<int>(cutoff)
+				  << " res " << res << " env " << amt
+				  << " | lfo " << lfoShape << " " << rate << "Hz pitch " << vib
+				  << " cut " << wob << "\r\n" << std::flush;
 }
 }

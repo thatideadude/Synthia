@@ -12,9 +12,10 @@ class	Voice
 		Voice(void);
 
 		void	setSampleRate(double sr);
-		void	noteOn(int note, float freq, uint64_t age);
+		void	noteOn(int note, uint64_t age);
+		void	glideTo(int note);
 		void	noteOff(void);
-		float	render(const Patch &p);
+		float	render(const Patch &p, float lfo);
 
 		bool		isActive(void) const { return (_env.isActive()); }
 		bool		isReleasing(void) const { return (_env.isReleasing()); }
@@ -29,4 +30,7 @@ class	Voice
 		int			_note;
 		bool		_held;
 		uint64_t	_age;
+		double		_sampleRate = 48000.0;
+		float		_pitch = 60.0f;
+		float		_target = 60.0f;
 };
