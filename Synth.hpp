@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include "Delay.hpp"
+#include "Reverb.hpp"
 #include "Lfo.hpp"
 #include "Patch.hpp"
 #include "Voice.hpp"
@@ -31,6 +33,7 @@ class	Synth
 		uint64_t				_noteCounter = 0;
 		Patch					_patch;
 		std::array<Voice, 8>	_voices;
-		Fx						_fxs;
 		EventQueue				_events;
+		Delay					_delay;
+		Reverb					_reverb;
 };

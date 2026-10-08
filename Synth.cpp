@@ -4,6 +4,8 @@
 void	Synth::setSampleRate(double sr)
 {
 	_lfo.setSampleRate(sr);
+	_delay.setSampleRate(sr);
+	_reverb.setSampleRate(sr);
 	for (auto &v : _voices)
 		v.setSampleRate(sr);
 }
@@ -81,13 +83,28 @@ void Synth::render(float *out, int frames)
 		else
 			applyParam(e.param, e.value);
 	}
+	_delay.setParams(_patch.delayTime, _patch.delayFeedback, _patch.delayMix);
+	_reverb.setParams(_patch.reverbSize, _patch.reverbDamp, _patch.reverbMix);
+	const bool	reverbFirst = _patch.reverbFirst;
 	for (int i = 0; i < frames; ++i)
 	{
 		float	lfo = _lfo.next(_patch.lfoShape, _patch.lfoRate);
 		float 	mix = 0.0f;
 		for (auto &v : _voices)
 			mix += v.render(_patch, lfo);
-		out[i] = mix * 0.2f;
+
+		float	s = mix * 0.2f;
+		if (reverbFirst)
+		{
+			s = _reverb.process(s);
+			s = _delay.process(s);
+		}
+		else
+		{
+			s = _delay.process(s);
+			s = _reverb.process(s);
+		}
+		out[i] = s;
 	}
 }
 
@@ -159,16 +176,23 @@ void	Synth::applyParam(int id, float v)
 {
 	switch (id)
 	{
-		case P_Waveform		: _patch.waveform = static_cast<Waveform>(static_cast<int>(v)); break ;
-		case P_Cutoff		: _patch.cutoff = v; break;
-		case P_Resonance	: _patch.resonance = v; break ;
-		case P_EnvAmount	: _patch.envAmount = v; break ;
-		case P_FilterMode	: _patch.filterMode = static_cast<FilterMode>(static_cast<int>(v)); break ;
-		case P_LfoShape		: _patch.lfoShape = static_cast<LfoShape>(static_cast<int>(v)); break ;
-		case P_LfoRate		: _patch.lfoRate = v; break ;
-		case P_LfoPitch		: _patch.lfoPitch = v; break ;
-		case P_LfoCutoff	: _patch.lfoCutoff = v; break ;
-		case P_Glide		: _patch.glide = v; break ;
-		case P_Mono			: setMono(v >= 0.5f); break ;
+		case P_Waveform			: _patch.waveform = static_cast<Waveform>(static_cast<int>(v)); break ;
+		case P_Cutoff			: _patch.cutoff = v; break;
+		case P_Resonance		: _patch.resonance = v; break ;
+		case P_EnvAmount		: _patch.envAmount = v; break ;
+		case P_FilterMode		: _patch.filterMode = static_cast<FilterMode>(static_cast<int>(v)); break ;
+		case P_LfoShape			: _patch.lfoShape = static_cast<LfoShape>(static_cast<int>(v)); break ;
+		case P_LfoRate			: _patch.lfoRate = v; break ;
+		case P_LfoPitch			: _patch.lfoPitch = v; break ;
+		case P_LfoCutoff		: _patch.lfoCutoff = v; break ;
+		case P_Glide			: _patch.glide = v; break ;
+		case P_Mono				: setMono(v >= 0.5f); break ;
+		case P_DelayTime		: _patch.delayTime = v; break ;
+		case P_DelayFeedback 	: _patch.delayFeedback = v; break ;
+		case P_DelayMix			: _patch.delayMix = v; break ;
+		case P_ReverbSize		: _patch.reverbSize = v; break ;
+		case P_ReverbDamp		: _patch.reverbDamp = v; break ;
+		case P_ReverbMix		: _patch.reverbMix = v; break ;
+		case P_FxOrder			: _patch.reverbFirst = (v >= 0.5f); break ;
 	}
 }

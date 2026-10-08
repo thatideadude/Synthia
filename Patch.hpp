@@ -36,7 +36,14 @@ enum	Param
 	P_LfoPitch,
 	P_LfoCutoff,
 	P_Glide,
-	P_Mono
+	P_Mono,
+	P_DelayTime,
+	P_DelayFeedback,
+	P_DelayMix,
+	P_ReverbSize,
+	P_ReverbDamp,
+	P_ReverbMix,
+	P_FxOrder
 };
 
 struct	Patch
@@ -59,4 +66,11 @@ struct	Patch
 	float		lfoPitch = 0.0f;
 	float		lfoCutoff = 0.0f;
 	float		glide = 0.0f;
+	float		delayTime = 0.35f;
+	float		delayFeedback = 0.4f;
+	float		delayMix = 0.3f;
+	float		reverbSize = 0.7f;
+	float		reverbDamp = 0.4f;
+	float		reverbMix = 0.25f;
+	bool		reverbFirst = false;
 };
